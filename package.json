@@ -1,0 +1,16 @@
+{
+  "name": "blockchain-ticketing-system",
+  "version": "1.0.0",
+  "description": "A blockchain-based ticketing system using Ethereum",
+  "scripts": {
+    "start": "http-server frontend -p 3000"
+  },
+  "dependencies": {
+    "web3": "^1.10.4"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "author": "",
+  "license": "MIT"
+}

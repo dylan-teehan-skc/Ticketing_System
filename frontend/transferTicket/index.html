@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transfer Ticket - Blockchain Ticketing System</title>
+    <link rel="stylesheet" href="../shared/css/styles.css">
+</head>
+<body>
+    <div class="nav-container"></div>
+
+    <div class="container">
+        <div class="card">
+            <h1>Transfer Tickets Back to Vendor</h1>
+            
+            <div class="form-group">
+                <label for="walletAddress">Your Wallet Address:</label>
+                <input type="text" id="walletAddress" placeholder="Enter your wallet address">
+            </div>
+
+            <div class="form-group">
+                <label for="ticketAmount">Number of Tickets to Return:</label>
+                <input type="number" id="ticketAmount" min="1" value="1">
+            </div>
+
+            <div class="form-group">
+                <label>Refund Amount:</label>
+                <p id="refundAmount">Loading...</p>
+            </div>
+
+            <button onclick="returnTickets()">Return Tickets</button>
+
+            <div id="transactionStatus" class="card" style="display: none;">
+                <h2>Transaction Status</h2>
+                <div id="statusDetails"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../shared/js/web3-config.js"></script>
+    <script src="../shared/js/nav.js"></script>
+    <script src="transfer.js"></script>
+</body>
+</html> 
