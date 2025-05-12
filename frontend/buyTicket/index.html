@@ -116,6 +116,7 @@
             
             <div class="price-info">
                 <p><strong>Current Ticket Price:</strong> <span id="ticketPrice">Loading...</span></p>
+                <p><strong>Sales Status:</strong> <span id="salesStatus">Loading...</span></p>
             </div>
 
             <div class="form-group">
@@ -156,10 +157,9 @@
         // Initialize Web3 and enable button when ready
         window.addEventListener('load', async function() {
             try {
-                const { web3: w3, ticketToken: tt, ticketSales: ts } = await initWeb3();
+                const { web3: w3, ticketToken: tt } = await initWeb3();
                 window.web3 = w3;
                 window.ticketToken = tt;
-                window.ticketSales = ts;
                 
                 // Enable button and hide loading
                 buyButton.disabled = false;
@@ -168,6 +168,7 @@
 
                 // Update price and total cost
                 await updatePrice();
+                await updateSalesStatus();
                 updateTotalCost();
             } catch (error) {
                 console.error('Error initializing Web3:', error);
@@ -178,12 +179,23 @@
         // Update price and total cost when page loads
         async function updatePrice() {
             try {
-                const price = await window.ticketSales.methods.ticketPrice().call();
+                const price = await window.ticketToken.methods.ticketPrice().call();
                 document.getElementById('ticketPrice').textContent = 
-                    window.web3.utils.fromWei(price, 'ether') + ' SETH';
+                    window.web3.utils.fromWei(price, 'ether') + ' ETH';
             } catch (error) {
                 console.error('Error loading ticket price:', error);
                 document.getElementById('ticketPrice').textContent = 'Error loading price';
+            }
+        }
+
+        async function updateSalesStatus() {
+            try {
+                const status = await window.ticketToken.methods.salesActive().call();
+                document.getElementById('salesStatus').textContent = status ? 'Active' : 'Inactive';
+                buyButton.disabled = !status;
+            } catch (error) {
+                console.error('Error loading sales status:', error);
+                document.getElementById('salesStatus').textContent = 'Error loading status';
             }
         }
 
@@ -192,145 +204,60 @@
 
         async function updateTotalCost() {
             try {
-                const price = await window.ticketSales.methods.ticketPrice().call();
+                const price = await window.ticketToken.methods.ticketPrice().call();
                 const amount = document.getElementById('ticketAmount').value;
                 const total = window.web3.utils.toBN(price).mul(window.web3.utils.toBN(amount));
                 document.getElementById('totalCost').textContent = 
-                    window.web3.utils.fromWei(total, 'ether') + ' SETH';
+                    window.web3.utils.fromWei(total, 'ether') + ' ETH';
             } catch (error) {
-                console.error('Error updating total cost:', error);
+                console.error('Error calculating total cost:', error);
                 document.getElementById('totalCost').textContent = 'Error calculating cost';
             }
         }
 
         async function buyTickets() {
-            if (!window.web3) {
-                alert('Web3 is not initialized yet. Please wait...');
-                return;
-            }
-
-            const address = document.getElementById('walletAddress').value;
+            const statusDiv = document.getElementById('transactionStatus');
+            const statusDetails = document.getElementById('statusDetails');
             const amount = document.getElementById('ticketAmount').value;
-
-            if (!address) {
-                alert('Please enter your wallet address');
-                return;
-            }
-
-            if (!window.web3.utils.isAddress(address)) {
-                alert('Invalid wallet address!');
-                return;
-            }
-
-            if (amount < 1) {
-                alert('Please enter a valid number of tickets!');
-                return;
-            }
-
+            
             try {
-                // Show transaction status
-                const statusDiv = document.getElementById('transactionStatus');
-                const detailsDiv = document.getElementById('statusDetails');
-                statusDiv.style.display = 'block';
-                detailsDiv.innerHTML = '<p>Processing transaction...</p>';
-
-                // Disable button during transaction
-                buyButton.disabled = true;
-
-                // Get the current account from MetaMask
-                const accounts = await window.web3.eth.getAccounts();
-                const currentAccount = accounts[0];
-
-                if (currentAccount.toLowerCase() !== address.toLowerCase()) {
-                    throw new Error('Please connect the wallet address you entered');
-                }
-
-                // Check if user has enough balance
-                const balance = await window.web3.eth.getBalance(currentAccount);
-                const price = await window.ticketSales.methods.ticketPrice().call();
+                // Get the current price
+                const price = await window.ticketToken.methods.ticketPrice().call();
                 const totalCost = window.web3.utils.toBN(price).mul(window.web3.utils.toBN(amount));
-
-                if (window.web3.utils.toBN(balance).lt(totalCost)) {
-                    throw new Error(`Insufficient balance. You need ${window.web3.utils.fromWei(totalCost, 'ether')} SETH but have ${window.web3.utils.fromWei(balance, 'ether')} SETH`);
-                }
-
-                // Request account access if needed
-                if (window.ethereum) {
-                    try {
-                        await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    } catch (error) {
-                        throw new Error('Please connect your MetaMask wallet first');
-                    }
-                }
-
-                // Check if sales are active
-                const salesActive = await window.ticketSales.methods.salesActive().call();
-                console.log('Sales active status:', salesActive);
                 
-                if (!salesActive) {
-                    throw new Error('Ticket sales are not active at the moment');
-                }
-
+                // Get the connected account
+                const accounts = await window.web3.eth.getAccounts();
+                const account = accounts[0];
+                
+                // Show transaction status
+                statusDiv.style.display = 'block';
+                statusDetails.innerHTML = '<div class="alert">Processing transaction...</div>';
+                
                 // Send the transaction
-                console.log('Sending transaction with:', {
-                    from: currentAccount,
-                    value: totalCost.toString(),
-                    gas: 300000
-                });
-
-                // Get the current ticket price from the contract
-                const currentPrice = await window.ticketSales.methods.ticketPrice().call();
-                console.log('Current ticket price:', window.web3.utils.fromWei(currentPrice, 'ether'), 'ETH');
-
-                // Calculate the exact value needed
-                const exactValue = window.web3.utils.toBN(currentPrice).mul(window.web3.utils.toBN(amount));
-                console.log('Exact value needed:', window.web3.utils.fromWei(exactValue, 'ether'), 'ETH');
-
-                const transaction = await window.ticketSales.methods.buyTicket().send({
-                    from: currentAccount,
-                    value: exactValue.toString(),
-                    gas: 300000 // Add gas limit
-                });
-
-                // Update status
-                detailsDiv.innerHTML = `
-                    <p class="alert alert-success">Transaction successful!</p>
-                    <p><strong>Transaction Hash:</strong> ${transaction.transactionHash}</p>
-                    <p><strong>Tickets Purchased:</strong> ${amount}</p>
-                    <p><strong>Total Cost:</strong> ${window.web3.utils.fromWei(totalCost, 'ether')} SETH</p>
-                `;
-
-                // Update ticket amount input
-                document.getElementById('ticketAmount').value = 1;
-                updateTotalCost();
-
-            } catch (error) {
-                console.error('Transaction error:', error);
-                let errorMessage = error.message;
+                const result = await window.ticketToken.methods.buyTicket()
+                    .send({ 
+                        from: account,
+                        value: totalCost.toString()
+                    });
                 
-                // Handle specific contract errors
-                if (error.message.includes('revert')) {
-                    if (error.message.includes('insufficient funds')) {
-                        errorMessage = 'Insufficient funds to complete the transaction';
-                    } else if (error.message.includes('invalid amount')) {
-                        errorMessage = 'Invalid ticket amount';
-                    } else {
-                        errorMessage = 'Transaction failed: Contract rejected the transaction';
-                    }
-                }
-
-                document.getElementById('statusDetails').innerHTML = `
-                    <p class="alert alert-error">${errorMessage}</p>
-                    <p>Please make sure:</p>
-                    <ul>
-                        <li>You have enough SETH in your wallet</li>
-                        <li>You're connected to the Sepolia network</li>
-                        <li>The wallet address matches your MetaMask account</li>
-                    </ul>
+                // Show success message
+                statusDetails.innerHTML = `
+                    <div class="alert alert-success">
+                        Transaction successful!<br>
+                        Transaction hash: ${result.transactionHash}
+                    </div>
                 `;
-            } finally {
-                // Re-enable button
-                buyButton.disabled = false;
+                
+                // Update the wallet address field
+                document.getElementById('walletAddress').value = account;
+                
+            } catch (error) {
+                console.error('Error buying tickets:', error);
+                statusDetails.innerHTML = `
+                    <div class="alert alert-error">
+                        Error: ${error.message}
+                    </div>
+                `;
             }
         }
     </script>

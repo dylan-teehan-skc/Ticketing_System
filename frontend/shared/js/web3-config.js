@@ -1,15 +1,24 @@
 // Initialize Web3
 let web3;
 let ticketToken;
-let ticketSales;
 
-const TICKET_TOKEN_ADDRESS = '0x059d7d660949Ee3663a3bbe9071975872b90384B';
-const TICKET_SALES_ADDRESS = '0x867A5dd491ebE2f8A3e4527D25736a8ca2F31E2d';
+const TICKET_TOKEN_ADDRESS = '0xa358E960169fCBdEa45Fa9d3CDe6E334f68Aa2C2';
 
-// Contract ABIs
+// Contract ABI
 const TICKET_TOKEN_ABI = [
     {
-        "inputs": [],
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "_maxSupply",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "_ticketPrice",
+                "type": "uint256"
+            }
+        ],
         "stateMutability": "nonpayable",
         "type": "constructor"
     },
@@ -36,6 +45,89 @@ const TICKET_TOKEN_ABI = [
             }
         ],
         "name": "Approval",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "oldMaxSupply",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "newMaxSupply",
+                "type": "uint256"
+            }
+        ],
+        "name": "MaxSupplyChanged",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "bool",
+                "name": "active",
+                "type": "bool"
+            }
+        ],
+        "name": "SalesStatusChanged",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "newPrice",
+                "type": "uint256"
+            }
+        ],
+        "name": "TicketPriceChanged",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "buyer",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "TicketPurchased",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "seller",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "TicketReturned",
         "type": "event"
     },
     {
@@ -132,12 +224,32 @@ const TICKET_TOKEN_ABI = [
     },
     {
         "inputs": [],
+        "name": "buyTicket",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
         "name": "decimals",
         "outputs": [
             {
                 "internalType": "uint8",
                 "name": "",
                 "type": "uint8"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "maxSupply",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
             }
         ],
         "stateMutability": "view",
@@ -158,12 +270,90 @@ const TICKET_TOKEN_ABI = [
     },
     {
         "inputs": [],
+        "name": "owner",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "returnTicket",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bool",
+                "name": "_active",
+                "type": "bool"
+            }
+        ],
+        "name": "setSalesStatus",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "_newPrice",
+                "type": "uint256"
+            }
+        ],
+        "name": "setTicketPrice",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "salesActive",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
         "name": "symbol",
         "outputs": [
             {
                 "internalType": "string",
                 "name": "",
                 "type": "string"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "ticketPrice",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
             }
         ],
         "stateMutability": "view",
@@ -234,148 +424,6 @@ const TICKET_TOKEN_ABI = [
         ],
         "stateMutability": "nonpayable",
         "type": "function"
-    }
-];
-
-const TICKET_SALES_ABI = [
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "_ticketToken",
-                "type": "address"
-            },
-            {
-                "internalType": "uint256",
-                "name": "_ticketPrice",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "nonpayable",
-        "type": "constructor"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": false,
-                "internalType": "address",
-                "name": "buyer",
-                "type": "address"
-            },
-            {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            }
-        ],
-        "name": "TicketPurchased",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": false,
-                "internalType": "address",
-                "name": "seller",
-                "type": "address"
-            },
-            {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            }
-        ],
-        "name": "TicketReturned",
-        "type": "event"
-    },
-    {
-        "inputs": [],
-        "name": "buyTicket",
-        "outputs": [],
-        "stateMutability": "payable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            }
-        ],
-        "name": "returnTicket",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bool",
-                "name": "_active",
-                "type": "bool"
-            }
-        ],
-        "name": "setSalesStatus",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "_newPrice",
-                "type": "uint256"
-            }
-        ],
-        "name": "setTicketPrice",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "ticketPrice",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "salesActive",
-        "outputs": [
-            {
-                "internalType": "bool",
-                "name": "",
-                "type": "bool"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "ticketToken",
-        "outputs": [
-            {
-                "internalType": "contract TicketToken",
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
     },
     {
         "inputs": [],
@@ -392,40 +440,31 @@ const TICKET_SALES_ABI = [
 
 // Initialize Web3 and contracts
 async function initWeb3() {
-    // Modern dapp browsers
     if (window.ethereum) {
         try {
             // Request account access
             await window.ethereum.request({ method: 'eth_requestAccounts' });
+            
+            // Create Web3 instance
             web3 = new Web3(window.ethereum);
+            
+            // Initialize contract
+            ticketToken = new web3.eth.Contract(TICKET_TOKEN_ABI, TICKET_TOKEN_ADDRESS);
+            
+            return { web3, ticketToken };
         } catch (error) {
-            console.error("User denied account access");
-            // Fallback to Infura
-            const INFURA_PROJECT_ID = '2c583f2efdbc4cee8fb5b1a50d06dd9a';
-            web3 = new Web3(`https://sepolia.infura.io/v3/${INFURA_PROJECT_ID}`);
+            console.error('User denied account access');
+            throw error;
         }
+    } else {
+        console.error('No web3 provider detected');
+        throw new Error('No web3 provider detected');
     }
-    // Legacy dapp browsers
-    else if (window.web3) {
-        web3 = new Web3(window.web3.currentProvider);
-    }
-    // If no injected web3 instance is detected, fall back to Infura
-    else {
-        const INFURA_PROJECT_ID = '2c583f2efdbc4cee8fb5b1a50d06dd9a';
-        web3 = new Web3(`https://sepolia.infura.io/v3/${INFURA_PROJECT_ID}`);
-    }
-
-    // Initialize contracts
-    ticketToken = new web3.eth.Contract(TICKET_TOKEN_ABI, TICKET_TOKEN_ADDRESS);
-    ticketSales = new web3.eth.Contract(TICKET_SALES_ABI, TICKET_SALES_ADDRESS);
-
-    return { web3, ticketToken, ticketSales };
 }
 
 // Initialize on page load
 window.addEventListener('load', async function() {
-    const { web3: w3, ticketToken: tt, ticketSales: ts } = await initWeb3();
+    const { web3: w3, ticketToken: tt } = await initWeb3();
     window.web3 = w3;
     window.ticketToken = tt;
-    window.ticketSales = ts;
 }); 
