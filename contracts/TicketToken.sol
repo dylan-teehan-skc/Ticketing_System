@@ -4,12 +4,13 @@ pragma solidity ^0.8.0;
 import "./interfaces/IERC20.sol";
 
 contract TicketToken is IERC20 {
+
     string public name = "Event Ticket Token";
     string public symbol = "TICKET";
-    uint8 public decimals = 0; // Tickets are whole units
+    uint8 public constant decimals = 0;  // Tickets are whole units
     uint256 private _totalSupply;
-    uint256 public maxSupply; // Maximum number of tickets that can be minted
-    uint256 public ticketPrice; // Price per ticket in Wei
+    uint256 public maxSupply;
+    uint256 public ticketPrice; 
     bool public salesActive;
     
     mapping(address => uint256) private _balances;
@@ -17,12 +18,25 @@ contract TicketToken is IERC20 {
     
     address public owner;
     
-    event TicketPurchased(address buyer, uint256 amount);
-    event TicketReturned(address seller, uint256 amount);
+    // Events
+    event TicketPurchased(address indexed buyer, uint256 amount);
+    event TicketSold(address indexed seller, uint256 amount);
     event SalesStatusChanged(bool active);
     event TicketPriceChanged(uint256 newPrice);
-    event MaxSupplyChanged(uint256 oldMaxSupply, uint256 newMaxSupply);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     
+    // Modifiers
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+    
+    modifier whenSalesActive() {
+        require(salesActive, "Ticket sales are not active");
+        _;
+    }
+    
+    // Constructor  
     constructor(uint256 _maxSupply, uint256 _ticketPrice) {
         require(_maxSupply > 0, "Max supply must be greater than 0");
         require(_ticketPrice > 0, "Ticket price must be greater than 0");
@@ -31,20 +45,12 @@ contract TicketToken is IERC20 {
         maxSupply = _maxSupply;
         ticketPrice = _ticketPrice;
         salesActive = true;
+        
+        // Mint all tickets to the contract
+        _mint(address(this), _maxSupply);
     }
     
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner can call this function");
-        _;
-    }
-    
-    function setMaxSupply(uint256 _newMaxSupply) external onlyOwner {
-        require(_newMaxSupply >= _totalSupply, "New max supply cannot be less than current supply");
-        uint256 oldMaxSupply = maxSupply;
-        maxSupply = _newMaxSupply;
-        emit MaxSupplyChanged(oldMaxSupply, _newMaxSupply);
-    }
-    
+    // ERC20 Functions
     function totalSupply() external view override returns (uint256) {
         return _totalSupply;
     }
@@ -54,13 +60,7 @@ contract TicketToken is IERC20 {
     }
     
     function transfer(address recipient, uint256 amount) external override returns (bool) {
-        require(recipient != address(0), "Transfer to zero address");
-        require(_balances[msg.sender] >= amount, "Insufficient balance");
-        
-        _balances[msg.sender] -= amount;
-        _balances[recipient] += amount;
-        
-        emit Transfer(msg.sender, recipient, amount);
+        _transfer(msg.sender, recipient, amount);
         return true;
     }
     
@@ -69,64 +69,54 @@ contract TicketToken is IERC20 {
     }
     
     function approve(address spender, uint256 amount) external override returns (bool) {
-        require(spender != address(0), "Approve to zero address");
-        
-        _allowances[msg.sender][spender] = amount;
-        emit Approval(msg.sender, spender, amount);
+        _approve(msg.sender, spender, amount);
         return true;
     }
     
     function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool) {
-        require(sender != address(0), "Transfer from zero address");
-        require(recipient != address(0), "Transfer to zero address");
-        require(_balances[sender] >= amount, "Insufficient balance");
-        require(_allowances[sender][msg.sender] >= amount, "Insufficient allowance");
-        
-        _balances[sender] -= amount;
-        _balances[recipient] += amount;
-        _allowances[sender][msg.sender] -= amount;
-        
-        emit Transfer(sender, recipient, amount);
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, _allowances[sender][msg.sender] - amount);
         return true;
     }
     
-    function buyTicket() external payable {
-        require(salesActive, "Ticket sales are not active");
+    // Ticket-specific functions
+    function buyTicket() external payable whenSalesActive {
         require(msg.value >= ticketPrice, "Insufficient payment");
         
-        // Calculate number of tickets based on payment
         uint256 ticketAmount = msg.value / ticketPrice;
-        require(_totalSupply + ticketAmount <= maxSupply, "Exceeds maximum supply");
+        require(ticketAmount > 0, "Must buy at least 1 ticket");
+        require(_balances[address(this)] >= ticketAmount, "Not enough tickets available");
         
-        // Mint tickets to buyer
-        _totalSupply += ticketAmount;
-        _balances[msg.sender] += ticketAmount;
+        // Transfer tickets from contract to buyer
+        _transfer(address(this), msg.sender, ticketAmount);
         
         // Refund excess payment
         uint256 excess = msg.value - (ticketAmount * ticketPrice);
         if (excess > 0) {
-            payable(msg.sender).transfer(excess);
+            (bool success, ) = payable(msg.sender).call{value: excess}("");
+            require(success, "Excess payment refund failed");
         }
         
-        emit Transfer(address(0), msg.sender, ticketAmount);
         emit TicketPurchased(msg.sender, ticketAmount);
     }
     
-    function returnTicket(uint256 amount) external {
+    function sellTicket(uint256 amount) external {
         require(amount > 0, "Amount must be greater than 0");
         require(_balances[msg.sender] >= amount, "Insufficient tickets");
+        require(address(this).balance >= amount * ticketPrice, "Contract has insufficient funds");
         
-        // Burn the tickets
-        _totalSupply -= amount;
-        _balances[msg.sender] -= amount;
+        // Transfer tickets back to contract
+        _transfer(msg.sender, address(this), amount);
         
-        // Refund the payment in ETH
-        payable(msg.sender).transfer(amount * ticketPrice);
+        // Calculate and send payment
+        uint256 payment = amount * ticketPrice;
+        (bool success, ) = payable(msg.sender).call{value: payment}("");
+        require(success, "Payment transfer failed");
         
-        emit Transfer(msg.sender, address(0), amount);
-        emit TicketReturned(msg.sender, amount);
+        emit TicketSold(msg.sender, amount);
     }
     
+    // Owner functions
     function setSalesStatus(bool _active) external onlyOwner {
         salesActive = _active;
         emit SalesStatusChanged(_active);
@@ -138,11 +128,49 @@ contract TicketToken is IERC20 {
         emit TicketPriceChanged(_newPrice);
     }
     
-    function withdrawFunds() external onlyOwner {
-        payable(owner).transfer(address(this).balance);
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "New owner is the zero address");
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
     }
     
+    function withdrawFunds() external onlyOwner {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No funds to withdraw");
+        (bool success, ) = payable(owner).call{value: balance}("");
+        require(success, "Withdrawal failed");
+    }
+    
+    // Internal functions
+    function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(sender != address(0), "Transfer from zero address");
+        require(recipient != address(0), "Transfer to zero address");
+        require(_balances[sender] >= amount, "Transfer amount exceeds balance");
+        
+        _balances[sender] -= amount;
+        _balances[recipient] += amount;
+        emit Transfer(sender, recipient, amount);
+    }
+    
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "Approve from zero address");
+        require(spender != address(0), "Approve to zero address");
+        
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+    
+    function _mint(address account, uint256 amount) internal {
+        require(account != address(0), "Mint to zero address");
+        require(_totalSupply + amount <= maxSupply, "Exceeds max supply");
+        
+        _totalSupply += amount;
+        _balances[account] += amount;
+        emit Transfer(address(0), account, amount);
+    }
+    
+    // Receive external SETH function
     receive() external payable {
-        revert("Please use buyTicket() function to purchase tickets");
+        revert("Use buyTicket() to purchase tickets");
     }
 } 

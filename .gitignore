@@ -1,26 +1,63 @@
 # Dependencies
 node_modules/
 package-lock.json
+yarn.lock
+
+# Hardhat files
+cache/
+artifacts/
+typechain/
+typechain-types/
 
 # Environment variables
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # IDE files
-.vscode/
 .idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
 
 # Build files
 dist/
 build/
+coverage/
+coverage.json
 
-# Contract artifacts
-artifacts/
-cache/
+# Hardhat coverage
+coverageEnv/
+coverage.json
 
-# Logs
-*.log
+# Debug logs
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# System files
+# Local Hardhat node
+hardhat-node/
+
+# Gas reporter files
+gas-report.txt
+
+# React build
+frontend-react/build/
+frontend-react/dist/
+
+# React dependencies
+frontend-react/node_modules/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
 .DS_Store
-Thumbs.db 
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local 
