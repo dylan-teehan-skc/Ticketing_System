@@ -12,6 +12,7 @@ const Wallet = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [newWalletDetails, setNewWalletDetails] = useState(null);
+    const [showPrivateKey, setShowPrivateKey] = useState(false);
 
     const handleCreateWallet = async () => {
         setError('');
@@ -30,7 +31,8 @@ const Wallet = () => {
         }
 
         try {
-            await createWallet(password);
+            const walletDetails = await createWallet(password);
+            setNewWalletDetails(walletDetails);
             alert('Wallet created successfully! Please save your private key and keystore file securely.');
         } catch (err) {
             setError(err.message);
@@ -144,7 +146,7 @@ const Wallet = () => {
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Wallet Address</label>
+                                <label className="block text-sm font-medium text-gray-700">MetaMask Address</label>
                                 <div className="mt-1 flex rounded-md shadow-sm">
                                     <input
                                         type="text"
@@ -162,34 +164,52 @@ const Wallet = () => {
                             </div>
 
                             {newWalletDetails && (
-                                <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 my-4">
-                                    <h3 className="font-bold text-yellow-800 mb-2">Important: Save Your Wallet Details</h3>
-                                    <div className="mb-2">
-                                        <span className="font-semibold">Private Key:</span>
-                                        <span className="font-mono break-all ml-2">{newWalletDetails.privateKey}</span>
+                                <>
+                                    <div className="mt-4">
+                                        <label className="block text-sm font-medium text-gray-700">New Wallet Address</label>
+                                        <div className="mt-1 flex rounded-md shadow-sm">
+                                            <input
+                                                type="text"
+                                                value={newWalletDetails.address}
+                                                readOnly
+                                                className="flex-1 block w-full rounded-md border-gray-300 bg-white"
+                                            />
+                                            <button
+                                                onClick={() => copyToClipboard(newWalletDetails.address)}
+                                                className="ml-3 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                            >
+                                                Copy
+                                            </button>
+                                        </div>
                                     </div>
-                                    <button
-                                        className="mb-2 px-4 py-2 bg-blue-600 text-white rounded"
-                                        onClick={() => {
-                                            const data = {
-                                                address: newWalletDetails.address,
-                                                privateKey: newWalletDetails.privateKey,
-                                                keystore: newWalletDetails.keystore
-                                            };
-                                            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                                            const url = URL.createObjectURL(blob);
-                                            const a = document.createElement('a');
-                                            a.href = url;
-                                            a.download = 'wallet-info.json';
-                                            document.body.appendChild(a);
-                                            a.click();
-                                            document.body.removeChild(a);
-                                            URL.revokeObjectURL(url);
-                                        }}
-                                    >
-                                        Download Wallet Details
-                                    </button>
-                                </div>
+
+                                    <div className="mt-4">
+                                        <label className="block text-sm font-medium text-gray-700">Private Key</label>
+                                        <div className="mt-1 flex rounded-md shadow-sm">
+                                            <input
+                                                type={showPrivateKey ? "text" : "password"}
+                                                value={newWalletDetails.privateKey}
+                                                readOnly
+                                                className="flex-1 block w-full rounded-md border-gray-300 bg-white"
+                                            />
+                                            <button
+                                                onClick={() => setShowPrivateKey(!showPrivateKey)}
+                                                className="ml-3 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                            >
+                                                {showPrivateKey ? 'Hide' : 'Show'}
+                                            </button>
+                                            <button
+                                                onClick={() => copyToClipboard(newWalletDetails.privateKey)}
+                                                className="ml-3 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                            >
+                                                Copy
+                                            </button>
+                                        </div>
+                                        <p className="mt-2 text-sm text-red-600">
+                                            ⚠️ Important: Save this private key securely. It cannot be recovered if lost!
+                                        </p>
+                                    </div>
+                                </>
                             )}
 
                             {localStorage.getItem('walletType') === 'local' && (

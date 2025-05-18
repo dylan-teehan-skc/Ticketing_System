@@ -52,22 +52,30 @@ const TransferTicket = () => {
         setError(null);
         setTransactionStatus('Processing return...');
 
+        let pollInterval;
         try {
             const refundAmount = (parseFloat(ticketPrice) * ticketAmount).toFixed(4);
             const tx = await contract.methods.sellTicket(ticketAmount).send({ from: account });
             
+            // Update UI immediately after transaction is sent
+            setTransactionStatus(`Transaction sent! Waiting for confirmation...`);
+            
             // Start polling for transaction receipt
             const startTime = Date.now();
-            const pollInterval = setInterval(async () => {
+            pollInterval = setInterval(async () => {
                 try {
                     const receipt = await web3.eth.getTransactionReceipt(tx.transactionHash);
                     if (receipt) {
                         clearInterval(pollInterval);
                         if (receipt.status) {
-                            setTransactionStatus(`Tickets successfully returned! You will receive ${refundAmount} ETH as a refund.`);
-                            // Refresh balance after transfer
+                            // Update balance and show success message
                             const newBalance = await contract.methods.balanceOf(account).call();
                             setCurrentBalance(newBalance);
+                            setTransactionStatus(`Tickets successfully returned! You will receive ${refundAmount} ETH as a refund.`);
+                            
+                            // Update contract balance
+                            const newContractBalance = await web3.eth.getBalance(contract._address);
+                            setContractEthBalance(web3.utils.fromWei(newContractBalance, 'ether'));
                         } else {
                             setError('Transaction failed. Please check MetaMask or Etherscan for details.');
                         }
@@ -79,10 +87,15 @@ const TransferTicket = () => {
                     }
                 } catch (err) {
                     console.error('Error checking transaction:', err);
+                    clearInterval(pollInterval);
+                    setError('Error checking transaction status. Please check MetaMask or Etherscan.');
+                    setLoading(false);
                 }
-            }, 2000); 
-
+            }, 2000);
         } catch (error) {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+            }
             console.error('Return error:', error);
             const message = error?.message || '';
             if (message.includes('user rejected')) {
