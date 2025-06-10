@@ -1,6 +1,6 @@
 # 🎟️ Ticketing DApp
 
-This project is a decentralized ticketing application split into two main components:
+This project is a decentralised ticketing application split into two main components:
 
 ## 🛠️ Backend (Smart Contracts)
 
